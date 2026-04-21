@@ -32,7 +32,7 @@ def gameover(screen: pg.Surface) -> None:
     """
     bb = pg.Surface((WIDTH, HEIGHT))
     bb.fill((0, 0, 0))
-    bb.set_alpha(220)  # さらに濃く設定
+    bb.set_alpha(220) 
     
     fnt = pg.font.SysFont(None, 80)
     txt = fnt.render("Game Over", True, (255, 255, 255))
@@ -54,32 +54,47 @@ def get_kk_imgs() -> dict[tuple[int, int], pg.Surface]:
     """
     演習3：指示書の表に基づき、反転・回転を正しく適用した辞書を返す
     """
-    # 元のこうかとんは「左」向き
     kk_base = pg.image.load("fig/3.png")
     kk_left = pg.transform.rotozoom(kk_base, 0, 0.9)    # 左向き基準
     kk_right = pg.transform.flip(kk_left, True, False)  # 右向き基準（反転）
 
     return {
-        (0, 0):   kk_right,                                # 停止（右向き）
-        (5, 0):   kk_right,                                # 右
-        (5, -5):  pg.transform.rotozoom(kk_right, 45, 1.0),  # 右上
-        (0, -5):  pg.transform.rotozoom(kk_right, 90, 1.0),  # 上
-        (-5, -5): pg.transform.rotozoom(kk_left, -45, 1.0),  # 左上
-        (-5, 0):  kk_left,                                 # 左
-        (-5, 5):  pg.transform.rotozoom(kk_left, 45, 1.0),   # 左下
-        (0, 5):   pg.transform.rotozoom(kk_right, -90, 1.0), # 下
-        (5, 5):   pg.transform.rotozoom(kk_right, -45, 1.0), # 右下
+        (0, 0):   kk_right,
+        (5, 0):   kk_right,
+        (5, -5):  pg.transform.rotozoom(kk_right, 45, 1.0),
+        (0, -5):  pg.transform.rotozoom(kk_right, 90, 1.0),
+        (-5, -5): pg.transform.rotozoom(kk_left, -45, 1.0),
+        (-5, 0):  kk_left,
+        (-5, 5):  pg.transform.rotozoom(kk_left, 45, 1.0),
+        (0, 5):   pg.transform.rotozoom(kk_right, -90, 1.0),
+        (5, 5):   pg.transform.rotozoom(kk_right, -45, 1.0),
     }
 
 
 def calc_orientation(org: pg.Rect, dst: pg.Rect, current_xy: tuple[float, float]) -> tuple[float, float]:
     """
-    演習4：追従アルゴリズム
+    演習4：爆弾がこうかとんを追いかけるための方向ベクトルを計算する。
+    引数1 org：爆弾のRect
+    引数2 dst：こうかとんのRect
+    引数3 current_xy：現在の爆弾の速度ベクトル（慣性用）
+    戻り値：正規化された追従速度ベクトル (vx, vy)
+    
+    爆弾とこうかとんの距離が300ピクセル以上離れている場合に追従を開始し、
+    300ピクセル未満の場合は現在の移動方向を維持する。
     """
-    dx, dy = dst.centerx - org.centerx, dst.centery - org.centery
+    # 爆弾から見たこうかとんへの距離ベクトル(dx, dy)を計算
+    dx = dst.centerx - org.centerx
+    dy = dst.centery - org.centery
+    
+    # 距離（ベクトルの長さ）を計算
     dist = math.sqrt(dx**2 + dy**2)
+    
+    # 距離が300未満の場合は、現在の速度をそのまま返す（慣性）
     if dist < 300:
         return current_xy
+    
+    # 正規化（長さを一定にする）：速度の2乗が50になるように調整
+    # 指示書の「math.sqrt(50) / dist」を掛けることで、移動速度を固定する
     scale = math.sqrt(50) / dist
     return dx * scale, dy * scale
 
@@ -119,10 +134,8 @@ def main():
             if event.type == pg.QUIT:
                 return
         
-        # 1. 背景描画
         screen.blit(bg_img, [0, 0])
 
-        # 2. こうかとんの移動と向き
         key_lst = pg.key.get_pressed()
         sum_mv = [0, 0]
         for key, mv in DELTA.items():
@@ -130,19 +143,18 @@ def main():
                 sum_mv[0] += mv[0]
                 sum_mv[1] += mv[1]
 
-        if any(sum_mv): # 移動している間だけ向きを更新
+        if any(sum_mv): 
             kk_img = kk_imgs[tuple(sum_mv)]
 
         kk_rct.move_ip(sum_mv)
         if check_bound(kk_rct) != (True, True):
             kk_rct.move_ip(-sum_mv[0], -sum_mv[1])
         
-        # 3. 爆弾の更新
+        # 爆弾の更新（追従ベクトルの取得と拡大加速）
         vx, vy = calc_orientation(bb_rct, kk_rct, (vx, vy))
         idx = min(tmr // 500, 9)
         bb_img = bb_imgs[idx]
         
-        # 中心位置を維持してRectを更新
         old_center = bb_rct.center
         bb_rct = bb_img.get_rect(center=old_center)
         
@@ -152,12 +164,10 @@ def main():
         if not yoko: vx *= -1
         if not tate: vy *= -1
             
-        # 4. 衝突判定
         if kk_rct.colliderect(bb_rct):
             gameover(screen)
             return
 
-        # 5. 描画
         screen.blit(bb_img, bb_rct)
         screen.blit(kk_img, kk_rct)
         pg.display.update()
