@@ -19,8 +19,6 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 def check_bound(obj_rct: pg.Rect) -> tuple[bool, bool]:
     """
     Rectが画面内にあるかどうかを判定し、横方向・縦方向の結果を返す
-    引数：こうかとんRect または 爆弾Rect
-    戻り値：(横方向判定結果, 縦方向判定結果) ※True：画面内
     """
     yoko = 0 <= obj_rct.left and obj_rct.right <= WIDTH
     tate = 0 <= obj_rct.top and obj_rct.bottom <= HEIGHT
@@ -30,29 +28,25 @@ def check_bound(obj_rct: pg.Rect) -> tuple[bool, bool]:
 def gameover(screen: pg.Surface) -> None:
     """
     ゲームオーバー画面を5秒間表示する
-    引数：画面Surface
     """
-    # 画面全体を暗くする半透明のSurface
-    black_out = pg.Surface((WIDTH, HEIGHT))
-    black_out.fill((0, 0, 0))
-    black_out.set_alpha(128)
-    
-    # フォントの設定と「Game Over」文字の描画
-    fnt = pg.font.SysFont(None, 80)
+    bb = pg.Surface((WIDTH, HEIGHT))
+    bb.fill((0, 0, 0))
+    bb.set_alpha(300)
+    fnt = pg.font.SysFont("notosanscjkjp", 80)
     txt = fnt.render("Game Over", True, (255, 255, 255))
-    txt_rect = txt.get_rect(center=(WIDTH // 2, HEIGHT // 2))
-    
-    # 泣いているこうかとん画像
+    txt_x = WIDTH // 2 - txt.get_width() // 2
+    txt_y = HEIGHT // 2 - txt.get_height() // 2
+    bb.blit(txt, [txt_x, txt_y])
     kk_img = pg.transform.rotozoom(pg.image.load("fig/8.png"), 0, 0.9)
-    kk_rct1 = kk_img.get_rect(center=(WIDTH // 2 - 250, HEIGHT // 2))
-    kk_rct2 = kk_img.get_rect(center=(WIDTH // 2 + 250, HEIGHT // 2))
-    
-    # 描画
-    screen.blit(black_out, [0, 0])
-    screen.blit(txt, txt_rect)
-    screen.blit(kk_img, kk_rct1)
-    screen.blit(kk_img, kk_rct2)
-    
+    kk_rct = kk_img.get_rect()
+    kk_rct.centery = HEIGHT // 2
+    kk_rct.right = txt_x - 5
+    bb.blit(kk_img, kk_rct)
+    kk_rct2 = kk_img.get_rect()
+    kk_rct2.centery = HEIGHT // 2
+    kk_rct2.left = txt_x + txt.get_width() + 5
+    bb.blit(kk_img, kk_rct2)
+    screen.blit(bb, [0, 0])
     pg.display.update()
     time.sleep(5)
 
@@ -75,9 +69,25 @@ def get_kk_imgs() -> dict[tuple[int, int], pg.Surface]:
     }
 
 
+def calc_orientation(
+    org: pg.Rect, dst: pg.Rect, current_xy: tuple[float, float]
+) -> tuple[float, float]:
+    """
+    爆弾(org)からこうかとん(dst)に向かう正規化済み方向ベクトルを返す。
+    距離が300未満の場合は慣性としてcurrent_xyをそのまま返す。
+    """
+    dx = dst.centerx - org.centerx
+    dy = dst.centery - org.centery
+    dist = math.sqrt(dx ** 2 + dy ** 2)
+    if dist < 300:
+        return current_xy
+    scale = math.sqrt(50) / dist
+    return dx * scale, dy * scale
+
+
 def init_bb_imgs() -> tuple[list[pg.Surface], list[int]]:
     """
-    10段階の爆弾Surfaceリストと加速度リストのタプルを返す
+    10段階の爆弾SurfaceリストとaccelerationリストのタプルをVを返す
     """
     bb_imgs = []
     for r in range(1, 11):
@@ -93,29 +103,23 @@ def main():
     pg.display.set_caption("逃げろ！こうかとん")
     screen = pg.display.set_mode((WIDTH, HEIGHT))
     bg_img = pg.image.load("fig/pg_bg.jpg")
-    
-    # こうかとんの初期設定
     kk_imgs = get_kk_imgs()
     kk_img = kk_imgs[(0, 0)]
     kk_rct = kk_img.get_rect()
     kk_rct.center = 300, 200
-    
-    # 爆弾の初期設定
     bb_imgs, bb_accs = init_bb_imgs()
-    vx, vy = 5, 5
     bb_img = bb_imgs[0]
     bb_rct = bb_img.get_rect()
     bb_rct.center = random.randint(10, WIDTH - 10), random.randint(10, HEIGHT - 10)
-    
+    vx, vy = 5.0, 5.0
     clock = pg.time.Clock()
     tmr = 0
-    
     while True:
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 return
-        
-        # こうかとんの移動処理
+        screen.blit(bg_img, [0, 0])
+
         key_lst = pg.key.get_pressed()
         sum_mv = [0, 0]
         for key, mv in DELTA.items():
@@ -123,37 +127,27 @@ def main():
                 sum_mv[0] += mv[0]
                 sum_mv[1] += mv[1]
 
-        # 演習3：移動方向による画像の切り替え
-        if any(sum_mv): 
-            kk_img = kk_imgs[tuple(sum_mv)]
-
-        kk_rct.move_ip(sum_mv)
-        if check_bound(kk_rct) != (True, True):
-            kk_rct.move_ip(-sum_mv[0], -sum_mv[1])
-        
-        # 演習2：爆弾の拡大・加速処理
+        vx, vy = calc_orientation(bb_rct, kk_rct, (vx, vy))
         idx = min(tmr // 500, 9)
-        bb_img = bb_imgs[idx]
         avx = vx * bb_accs[idx]
         avy = vy * bb_accs[idx]
-        
-        # サイズ変更時に中心がズレないように調整
-        old_center = bb_rct.center
-        bb_rct = bb_img.get_rect()
-        bb_rct.center = old_center
-
         bb_rct.move_ip(avx, avy)
         yoko, tate = check_bound(bb_rct)
         if not yoko:
             vx *= -1
         if not tate:
             vy *= -1
-            
+        bb_img = bb_imgs[idx]
+        bb_rct.width = bb_img.get_rect().width
+        bb_rct.height = bb_img.get_rect().height
+
+        kk_rct.move_ip(sum_mv)
+        if check_bound(kk_rct) != (True, True):
+            kk_rct.move_ip(-sum_mv[0], -sum_mv[1])
+        kk_img = kk_imgs[tuple(sum_mv)]
         if kk_rct.colliderect(bb_rct):
             gameover(screen)
             return
-
-        screen.blit(bg_img, [0, 0])
         screen.blit(bb_img, bb_rct)
         screen.blit(kk_img, kk_rct)
         pg.display.update()
