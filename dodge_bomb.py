@@ -69,7 +69,7 @@ def main():
             vx *= -1 
         if not tate: #縦方向の判定
             vy *= -1 
-        screen.blit(bb_img, bb_rct) #爆弾を画面に描く
+        screen.blit(bb_img, bb_rct) #爆弾を画面に書く
         pg.display.update()
         tmr += 1
         clock.tick(50)
