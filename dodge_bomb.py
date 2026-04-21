@@ -1,6 +1,8 @@
+import math
 import os
 import sys
 import random
+import time
 import pygame as pg
 
 
@@ -26,6 +28,32 @@ def check_bound(rct: pg.Rect) -> tuple[bool, bool]:
         tate = False
     return yoko, tate 
 
+def gameover(screen: pg.Surface) -> None:
+    """
+    ゲームオーバー画面を表示する関数
+    引数:画面surface
+    戻り値:なし
+    """
+    gameover_surf = pg.Surface((WIDTH, HEIGHT))
+    pg.draw.rect(gameover_surf, (0, 0, 0), (0, 0, WIDTH, HEIGHT))  # 黒い背景を描く
+    gameover_surf.set_alpha(200)  # 透明度を設定
+
+    font_surf = pg.Surface((WIDTH, HEIGHT))
+    font = pg.font.Font(None, 100)  # フォントとサイズを指定
+    text_surf = font.render("GAME OVER", True, (255, 255, 255))  # 白い文字で描画
+    text_rect = text_surf.get_rect(center=(WIDTH // 2, HEIGHT // 2))  # 文字を画面中央に配置
+    gameover_surf.blit(text_surf, text_rect)  # ゲームオーバーの文字を描画
+
+    gmkk_img = pg.transform.rotozoom(pg.image.load("fig/8.png"), 0, 0.9)
+    gmkk_rect1 = gmkk_img.get_rect(center=(WIDTH // 2 - 250, HEIGHT // 2))  # こうかとんの画像を文字の左に配置
+    gmkk_rect2 = gmkk_img.get_rect(center=(WIDTH // 2 + 250, HEIGHT // 2))  # こうかとんの画像を文字の右に配置
+    gameover_surf.blit(gmkk_img, gmkk_rect1)  # こうかとんの画像を描画
+    gameover_surf.blit(gmkk_img, gmkk_rect2)  # こうかとんの画像を描画
+
+    screen.blit(gameover_surf, (0, 0))  # ゲームオーバー画面を表示
+    pg.display.update()  # 画面を更新
+    pg.time.wait(5000)  # タイマー
+
 
 def main():
     pg.display.set_caption("逃げろ！こうかとん")
@@ -34,6 +62,8 @@ def main():
     kk_img = pg.transform.rotozoom(pg.image.load("fig/3.png"), 0, 0.9)
     kk_rct = kk_img.get_rect()
     kk_rct.center = 300, 200
+
+
 
     bb_img = pg.Surface((20, 20))  #半径10の赤い円を書く
     pg.draw.circle(bb_img, (255, 0, 0), (10, 10), 10)  #爆弾円を描く
@@ -50,6 +80,8 @@ def main():
                 return
             
         if kk_rct.colliderect(bb_rct): #こうかとんと爆弾が重なったら
+            print("ゲームオーバー")
+            gameover(screen)  #ゲームオーバー画面を表示する関数を呼び出す
             return  #ゲームオーバーとしてmain関数を終了
         screen.blit(bg_img, [0, 0]) 
 
