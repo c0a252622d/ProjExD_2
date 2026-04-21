@@ -54,6 +54,19 @@ def gameover(screen: pg.Surface) -> None:
     pg.display.update()  # 画面を更新
     pg.time.wait(5000)  # タイマー
 
+def init_bb_imgs() -> tuple[list[pg.Surface], list[int]]:
+    """
+    10段階の爆弾SurfaceリストとaccelerationリストのタプルをVを返す
+    """
+    bb_imgs = []
+    for r in range(1, 11):
+        bb_img = pg.Surface((20 * r, 20 * r))
+        pg.draw.circle(bb_img, (255, 0, 0), (10 * r, 10 * r), 10 * r)
+        bb_img.set_colorkey((0, 0, 0))
+        bb_imgs.append(bb_img)
+    bb_accs = [a for a in range(1, 11)]
+    return bb_imgs, bb_accs
+
 
 def main():
     pg.display.set_caption("逃げろ！こうかとん")
@@ -65,10 +78,9 @@ def main():
 
 
 
-    bb_img = pg.Surface((20, 20))  #半径10の赤い円を書く
-    pg.draw.circle(bb_img, (255, 0, 0), (10, 10), 10)  #爆弾円を描く
-    bb_img.set_colorkey((0, 0, 0)) #黒を透過させる
-    bb_rct = bb_img.get_rect() #爆弾RECTを取得する
+    bb_imgs, bb_accs = init_bb_imgs() # 追加：リストを生成
+    bb_img = bb_imgs[0]               # 追加：最初の爆弾をセット
+    bb_rct = bb_img.get_rect()        # 修正：最初のRectを取得
     bb_rct.center = (random.randint(0, WIDTH), random.randint(0, HEIGHT))  # 爆弾の初期座標を設定する
     vx, vy = +5, +5 #爆弾の速度
 
@@ -98,7 +110,17 @@ def main():
 
         
         screen.blit(kk_img, kk_rct)
-        bb_rct.move_ip(vx, vy) #爆弾を移動させる
+        idx = min(tmr // 500, 9)  # 500フレームごとに段階を上げる
+        bb_img = bb_imgs[idx]
+        acc = bb_accs[idx]
+        avx, avy = vx * acc, vy * acc
+        
+        old_center = bb_rct.center
+        bb_rct = bb_img.get_rect()
+        bb_rct.center = old_center
+        
+
+        bb_rct.move_ip(avx, avy)  # 修正：加速後の速度(avx, avy)で移動
         yoko, tate = check_bound(bb_rct) 
         if not yoko: #横方向の判定
             vx *= -1 
