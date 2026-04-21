@@ -1,5 +1,6 @@
 import os
 import sys
+import random
 import pygame as pg
 
 
@@ -10,7 +11,20 @@ DELTA = {
     pg.K_LEFT: (-5, 0), #左 
     pg.K_RIGHT: (+5, 0), #右
 }
+
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
+def check_bound(rct: pg.Rect) -> tuple[bool, bool]:
+    """
+    引数:こうかとんrctまたは爆弾rct
+    戻り値:横方向、縦方向のはみ出し判定結果（Ture:はみ出ていない、False:はみ出している）
+    """
+    yoko, tate = True, True
+    if rct.left < 0 or rct.right > WIDTH:
+        yoko = False
+    if rct.top < 0 or rct.bottom > HEIGHT:
+        tate = False
+    return yoko, tate 
 
 
 def main():
@@ -20,6 +34,14 @@ def main():
     kk_img = pg.transform.rotozoom(pg.image.load("fig/3.png"), 0, 0.9)
     kk_rct = kk_img.get_rect()
     kk_rct.center = 300, 200
+
+    bb_img = pg.Surface((20, 20))  #半径10の赤い円を書く
+    pg.draw.circle(bb_img, (255, 0, 0), (10, 10), 10)  #爆弾円を描く
+    bb_img.set_colorkey((0, 0, 0)) #黒を透過させる
+    bb_rct = bb_img.get_rect() #爆弾RECTを取得する
+    bb_rct.center = (random.randint(0, WIDTH), random.randint(0, HEIGHT))  # 爆弾の初期座標を設定する
+    vx, vy = +5, +5 #爆弾の速度
+
     clock = pg.time.Clock()
     tmr = 0
     while True:
@@ -36,7 +58,18 @@ def main():
                 sum_mv[1] += mv[1]     
 
         kk_rct.move_ip(sum_mv)
+        if check_bound(kk_rct) != (True, True):
+            kk_rct.move_ip(-sum_mv[0], -sum_mv[1])
+
+        
         screen.blit(kk_img, kk_rct)
+        bb_rct.move_ip(vx, vy) #爆弾を移動させる
+        yoko, tate = check_bound(bb_rct) 
+        if not yoko: #横方向の判定
+            vx *= -1 
+        if not tate: #縦方向の判定
+            vy *= -1 
+        screen.blit(bb_img, bb_rct) #爆弾を画面に描く
         pg.display.update()
         tmr += 1
         clock.tick(50)
